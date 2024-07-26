@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const io = require('socket.io-client');
 
 // 서버 URL로 소켓 연결을 생성합니다.
@@ -8,7 +9,7 @@ const handleConnect = () => {
   socket.on('connect', () => {
     console.log('서버에 연결되었습니다.');
   });
-}
+};
 // 서버에 'message' 이벤트를 발생시킵니다.
 process.stdin.on('data', (data) => {
   const input = data.toString().trim();
@@ -24,17 +25,16 @@ socket.on('messageToClient', (data) => {
 let connectCount = 0;
 const countTimer = setInterval(() => {
   if (socket.connected === false) {
-    handleConnect()
+    handleConnect();
     console.log('서버와 연결이 끊겼습니다.');
     connectCount++;
   } else {
-    socket.emit('join','room1')
+    socket.emit('join', 'room1');
     clearInterval(countTimer);
   }
 
-  if (connectCount>3){
+  if (connectCount > 3) {
     clearInterval(countTimer);
     console.log('서버와 연결할 수 없습니다.');
   }
-
 }, 1000);

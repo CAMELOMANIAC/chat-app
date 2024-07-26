@@ -7,24 +7,23 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 
 @Controller('chat')
 export class ChatController {
-    @Get()
-    name():string {
-        return 'hello'
-    }
+  @Get()
+  name(): string {
+    return 'hello';
+  }
 
-    @Get('search')
-    search(@Query('content') content: string):string{
-        return content
-    }
+  @Get('search')
+  search(@Query('content') content: string): string {
+    return content;
+  }
 
+  @Get(':id')
+  dynamicParams(@Param('id') id: string): string {
+    return id;
+  }
 
-    @Get(':id')
-    dynamicParams(@Param ('id') id:string):string{
-        return id
-    }
-
-    @Post('create')
-    createChat(@Body() chatData){
-        return chatData
-    }
+  @Post('create')
+  createChat(@Body() chatData) {
+    return chatData;
+  }
 }
