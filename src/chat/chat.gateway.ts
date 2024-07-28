@@ -9,7 +9,13 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
-@WebSocketGateway({ port: 3001 })
+@WebSocketGateway({
+  cors: {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+})
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 
@@ -37,12 +43,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('message')
   handleMessage(@ConnectedSocket() client, @MessageBody() payload: any): void {
-    console.log(payload, '받음');
     //client.emit('messageToClient',payload)
 
     client.rooms.forEach((room: string) => {
       //this.server.to(room).emit('messageToClient', payload);//server는 게이트웨이 서버 전부
-      client.broadcast.to(room).emit('messageToClient', payload); //broadcast속성은 발신자를 제외하고보냄
+      client.broadcast
+        .to(room)
+        .emit('messageToClient', client.id + '님의 메세지:' + payload); //broadcast속성은 발신자를 제외하고보냄
     });
   }
 }
