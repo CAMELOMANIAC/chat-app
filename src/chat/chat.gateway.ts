@@ -54,7 +54,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     //저장된 마우스 포지션을 클라이언트에게 보내주도록 하는 타이머
     setInterval(() => {
       this.handleSendMousePosition();
-    }, 5000);
+    }, 100);
   }
 
   handleDisconnect(client: any): void {
@@ -79,8 +79,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client,
     @MessageBody() payload: any,
   ): void {
-    const roomName = JSON.stringify(Array.from(client.rooms)[1]); //룸에 0번은 자기 자신이고 실제 룸은 하나밖에 없도록 했으므로 1번을 가져옴
-    if (!roomName) {
+    const roomName = Array.from(client.rooms)[1]; //룸에 0번은 자기 자신이고 실제 룸은 하나밖에 없도록 했으므로 1번을 가져옴
+    if (!roomName || typeof roomName !== 'string') {
       return;
     }
     // 룸의 값을 가져옵니다.
@@ -100,21 +100,45 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 업데이트된 배열을 다시 Map 객체에 설정합니다.
     this.clients.set(roomName, currentRoom);
-    console.log(this.clients);
+    //console.log(this.clients);
   }
 
-  // 클라이언트에게 마우스 포지션을 보내주는 타이머의 콜백 메서드
+  // 클라이언트에게 마우스 위치를 보내주는 타이머의 콜백 메서드
   handleSendMousePosition() {
-    if (this.clients.size === 0) return;
-    // this.clients 맵 객체를 순환합니다.
-    this.clients.forEach((roomMap) => {
-      // 각 룸의 클라이언트에게 메시지를 보냅니다.
-      roomMap.forEach((value, clientId) => {
-        this.server
-          .to(clientId)
-          .emit('mousePostionToClient', Array.from(roomMap.entries()));
-      });
+    const rooms = this.findAllRooms();
+    rooms.forEach((room, roomName) => {
+      //console.log('clientSize2', this.clients.get(roomName)?.size);
+      if (room?.size === this.clients.get(roomName)?.size) {
+        // this.clients 맵 객체를 순환합니다.
+        room.forEach((clientId) => {
+          this.clients.forEach((roomMap) => {
+            //console.log('roomName', roomName, 'clientId', clientId);
+            this.server
+              .to(clientId)
+              .emit('mousePostionToClient', Array.from(roomMap.entries()));
+          });
+        });
+        this.clients.clear();
+      }
     });
-    this.clients.clear();
+  }
+
+  /**
+   * 서버의 모든 룸을 반환합니다.
+   *
+   * @returns {Map<string, any>}
+   */
+  findAllRooms(): Map<string, any> {
+    const rooms = this.server.sockets.adapter.rooms;
+    const filteredRooms = new Map();
+
+    rooms.forEach((clients, roomName) => {
+      // 사용자 자신이 포함된 룸을 제외합니다.
+      if (!clients.has(roomName)) {
+        filteredRooms.set(roomName, clients);
+      }
+    });
+
+    return filteredRooms;
   }
 }
