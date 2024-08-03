@@ -22,7 +22,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleConnection(client: any): void {
     //this.server.emit('messageToClient', client.id + '님이 로그인 하셨습니다');
     client.on('join', (newRoom) => {
-      // 클라이언트가 현재 참여하고 있는 모든 룸에서 나가게 합니다.
+      // 다른룸에 join시 클라이언트가 현재 참여하고 있는 모든 룸에서 나가게 합니다.
       const rooms = Array.from(client.rooms);
       rooms.forEach((room: string) => {
         if (room !== client.id) {
@@ -43,6 +43,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
     });
 
+    //연결이 끊어지기 전에 실행됩니다.
     client.on('disconnecting', () => {
       client.rooms.forEach((room: string) => {
         this.server
@@ -52,8 +53,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  //실제 연결이 끊어지면 실행됩니다.
   handleDisconnect(client: any): void {
-    this.server.emit('messageToClient', client.id + '님이 로그아웃 하셨습니다');
+    //this.server.emit('messageToClient', client.id + '님이 로그아웃 하셨습니다');
+    this.clientsLastPostion.delete(client.id); //연결이 끊어진 클라이언트의 마지막 마우스 위치정보를 삭제합니다.
   }
 
   /**
@@ -101,6 +104,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 유저의 값을 가져옵니다.
     let currentUser = currentRoom.get(client.id);
     if (!currentUser) {
+      //console.log(client.id, currentUser);
       currentUser = [];
       currentRoom.set(client.id, currentUser);
     }
@@ -126,12 +130,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       //만약 룸에 있는 클라이언트 수와 클라이언트 맵 객체에 저장된 클라이언트 수가 같다면 즉시 마우스 위치를 보냅니다.
       if (room?.size === this.clients.get(roomName)?.size) {
         this.handleSendMousePosition();
-        //console.log('sendimmediately');
+        clearInterval(this.timer);
+        this.timer = null;
       } else if (!this.timer) {
         //최초 메세지를 받은 이후 메세지가 모이지 않으면 다른 메세지를 대기하도록 타이머를 설정합니다.
         this.timer = setTimeout(() => {
           this.handleSendMousePosition();
-          //console.log('sendafter');
           this.timer = null;
         }, 200);
       }
@@ -144,19 +148,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     rooms.forEach((room) => {
       room.forEach((clientId) => {
         this.clients.forEach((roomMap) => {
-          const clientsLastPostionToObject = Object.fromEntries(
-            this.clientsLastPostion,
-          );
-          const roomMapToObject = Object.fromEntries(roomMap);
-          console.log(
-            'clientsLastPostionToObject',
-            clientsLastPostionToObject,
-            '\nroomMapToObject',
-            roomMapToObject,
-          );
+          //클라이언트가 새로운 마우스 위치를 보내지 않았을 경우 마지막 마우스 위치를 보냅니다.
+          for (const [key, value] of this.clientsLastPostion) {
+            if (!roomMap.has(key)) {
+              roomMap.set(key, value);
+            }
+          }
+
           this.server
             .to(clientId)
-            .emit('mousePostionToClient', Array.from(roomMap.entries()));
+            .emit('mousePostionToClient', Object.fromEntries(roomMap));
         });
       });
     });
