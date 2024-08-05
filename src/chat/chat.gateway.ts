@@ -25,7 +25,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 다른룸에 join시 클라이언트가 현재 참여하고 있는 모든 룸에서 나가게 합니다.
       const rooms = Array.from(client.rooms);
       rooms.forEach((room: string) => {
-        if (room !== client.id) {
+        if (room !== client.id && room !== newRoom) {
           this.server
             .to(room)
             .emit('messageToClient', `${client.id}님이 ${room}에서 나갔습니다`);
@@ -115,31 +115,35 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.clients.set(roomName, currentRoom);
 
     const rooms = this.findAllRooms();
-    rooms.forEach((room) => {
-      //룸에 있는 클라이언트들의 마지막 마우스 위치를 clientsLastPostion에 저장합니다.(클라이언트가 새 마우스 위치정보를 안보낼경우 대신 이걸 보내기위함)
-      const mapToObj = Object.fromEntries(this.clients.get(roomName));
-      room.forEach((clientId) => {
-        if (mapToObj[clientId]) {
-          const lastPostion = [
-            mapToObj[clientId][mapToObj[clientId].length - 1],
-          ];
-          this.clientsLastPostion.set(clientId, lastPostion);
+    roomName &&
+      rooms.forEach((room) => {
+        //룸에 있는 클라이언트들의 마지막 마우스 위치를 clientsLastPostion에 저장합니다.(클라이언트가 새 마우스 위치정보를 안보낼경우 대신 이걸 보내기위함)
+        const clientEntries = this.clients.get(roomName);
+        if (clientEntries) {
+          const mapToObj = Object.fromEntries(this.clients.get(roomName));
+          room.forEach((clientId) => {
+            if (mapToObj[clientId]) {
+              const lastPostion = [
+                mapToObj[clientId][mapToObj[clientId].length - 1],
+              ];
+              this.clientsLastPostion.set(clientId, lastPostion);
+            }
+          });
+        }
+
+        //만약 룸에 있는 클라이언트 수와 클라이언트 맵 객체에 저장된 클라이언트 수가 같다면 즉시 마우스 위치를 보냅니다.
+        if (room?.size === this.clients.get(roomName)?.size) {
+          this.handleSendMousePosition();
+          clearInterval(this.timer);
+          this.timer = null;
+        } else if (!this.timer) {
+          //최초 메세지를 받은 이후 메세지가 모이지 않으면 다른 메세지를 대기하도록 타이머를 설정합니다.
+          this.timer = setTimeout(() => {
+            this.handleSendMousePosition();
+            this.timer = null;
+          }, 200);
         }
       });
-
-      //만약 룸에 있는 클라이언트 수와 클라이언트 맵 객체에 저장된 클라이언트 수가 같다면 즉시 마우스 위치를 보냅니다.
-      if (room?.size === this.clients.get(roomName)?.size) {
-        this.handleSendMousePosition();
-        clearInterval(this.timer);
-        this.timer = null;
-      } else if (!this.timer) {
-        //최초 메세지를 받은 이후 메세지가 모이지 않으면 다른 메세지를 대기하도록 타이머를 설정합니다.
-        this.timer = setTimeout(() => {
-          this.handleSendMousePosition();
-          this.timer = null;
-        }, 200);
-      }
-    });
   }
 
   /**각 클라이언트에게 마우스 위치를 보내주는 메서드 */
