@@ -148,21 +148,29 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /**각 클라이언트에게 마우스 위치를 보내주는 메서드 */
   handleSendMousePosition() {
-    const rooms = this.findAllRooms();
+    const rooms = Array.from(this.findAllRooms().keys());
     rooms.forEach((room) => {
-      room.forEach((clientId) => {
-        this.clients.forEach((roomMap) => {
-          //클라이언트가 새로운 마우스 위치를 보내지 않았을 경우 마지막 마우스 위치를 보냅니다.
-          for (const [key, value] of this.clientsLastPostion) {
-            if (!roomMap.has(key)) {
-              roomMap.set(key, value);
-            }
+      const roomCursorPosition = new Map();
+      this.getUsersInRoom(room).forEach((client) => {
+        if (this.clients.has(room) && this.clients.get(room).get(client)) {
+          roomCursorPosition.set(client, this.clients.get(room).get(client));
+        }
+      });
+      roomCursorPosition.forEach(() => {
+        //console.log(roomMap);
+        //클라이언트가 새로운 마우스 위치를 보내지 않았을 경우 마지막 마우스 위치를 보냅니다.
+        for (const [key, value] of this.clientsLastPostion) {
+          if (
+            !roomCursorPosition.has(key) &&
+            this.getUsersInRoom(room).some((client) => client === key)
+          ) {
+            roomCursorPosition.set(key, value);
           }
-
-          this.server
-            .to(clientId)
-            .emit('mousePostionToClient', Object.fromEntries(roomMap));
-        });
+        }
+        //console.log(room, ':', roomCursorPosition);
+        this.server
+          .to(room)
+          .emit('mousePostionToClient', Object.fromEntries(roomCursorPosition));
       });
     });
     this.clients.clear();
@@ -185,5 +193,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     return filteredRooms;
+  }
+
+  /**
+   * 룸이름으로 룸에 참여중인 사용자들을 반환합니다.
+   *
+   * @param {string} roomName - 읽을 룸 이름
+   * @returns {string[]}
+   */
+  getUsersInRoom(roomName: string): string[] {
+    const clientsInRoom = this.server.sockets.adapter.rooms.get(roomName);
+    return clientsInRoom ? Array.from(clientsInRoom) : [];
   }
 }
