@@ -20,6 +20,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 
   handleConnection(client: any): void {
+    //처음 소켓연결시 클라이언트가 서버에서는 어떤 식별번호를 가지는지 알려줍니다.
+    client.emit('clientId', client.id);
+
     //this.server.emit('messageToClient', client.id + '님이 로그인 하셨습니다');
     client.on('join', (newRoom) => {
       // 다른룸에 join시 클라이언트가 현재 참여하고 있는 모든 룸에서 나가게 합니다.
